@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Filter, Info, ListFilter, LineChart as LineChartIcon } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Info,
+  ListFilter,
+  LineChart as LineChartIcon,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import {
   BarChart,
@@ -19,16 +19,20 @@ import {
   Line,
   Legend,
 } from "recharts";
+import { Card, CardContent } from "./card";
+import { Badge } from "./badge";
+import { Tabs, TabsList, TabsTrigger } from "./tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./select";
+import { Input } from "./input";
+import { Button } from "./button";
+import { TESTDATA } from "../data/testData";
 
-/**
- * 미니 사양
- * - UI: Tailwind + shadcn/ui, 아이콘: lucide-react, 차트: recharts
- * - 데이터: 목데이터(섹터별, 종목별 재무 및 가격). 실제 연동 전까지 설계/UX 검증용
- * - 기능: (1) 섹터별 PER 집계(평균/상·하위) (2) 최근 분기/연간 상승 섹터/종목 (3) 상승 시작 이전 분기의 재무 비교 뷰
- * - 철학: 뉴스·정치 이벤트 배제(순수 펀더멘털+가격 시그널 기반)
- */
-
-// ===== 타입 정의 =====
 export type Periodicity = "quarterly" | "annual";
 export type Sector =
   | "Information Technology"
@@ -52,105 +56,6 @@ export interface TickerRow {
   periodicity: Periodicity; // 본 스냅샷 시계열의 주기
   snapshots: FundamentalsSnapshot[]; // 최신순 정렬 가정
 }
-
-// ===== 목데이터 =====
-const MOCK: TickerRow[] = [
-  {
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    sector: "Information Technology",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 1.40, price: 225 },
-      { period: "2025Q1", eps: 1.32, price: 205 },
-      { period: "2024Q4", eps: 1.26, price: 190 },
-      { period: "2024Q3", eps: 1.20, price: 180 },
-    ],
-  },
-  {
-    symbol: "MSFT",
-    name: "Microsoft Corp.",
-    sector: "Information Technology",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 3.05, price: 455 },
-      { period: "2025Q1", eps: 2.95, price: 420 },
-      { period: "2024Q4", eps: 2.85, price: 410 },
-      { period: "2024Q3", eps: 2.70, price: 390 },
-    ],
-  },
-  {
-    symbol: "AMZN",
-    name: "Amazon.com Inc.",
-    sector: "Consumer Discretionary",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 0.90, price: 205 },
-      { period: "2025Q1", eps: 0.84, price: 190 },
-      { period: "2024Q4", eps: 0.78, price: 175 },
-      { period: "2024Q3", eps: 0.60, price: 150 },
-    ],
-  },
-  {
-    symbol: "UNH",
-    name: "UnitedHealth Group",
-    sector: "Health Care",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 7.00, price: 570 },
-      { period: "2025Q1", eps: 6.60, price: 540 },
-      { period: "2024Q4", eps: 6.30, price: 520 },
-      { period: "2024Q3", eps: 6.10, price: 510 },
-    ],
-  },
-  {
-    symbol: "JPM",
-    name: "JPMorgan Chase & Co.",
-    sector: "Financials",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 4.25, price: 215 },
-      { period: "2025Q1", eps: 4.10, price: 200 },
-      { period: "2024Q4", eps: 3.90, price: 190 },
-      { period: "2024Q3", eps: 3.70, price: 185 },
-    ],
-  },
-  {
-    symbol: "CAT",
-    name: "Caterpillar Inc.",
-    sector: "Industrials",
-    periodicity: "quarterly",
-    snapshots: [
-      { period: "2025Q2", eps: 6.00, price: 345 },
-      { period: "2025Q1", eps: 5.80, price: 330 },
-      { period: "2024Q4", eps: 5.50, price: 310 },
-      { period: "2024Q3", eps: 5.10, price: 290 },
-    ],
-  },
-  // 연간 데이터 예시
-  {
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    sector: "Information Technology",
-    periodicity: "annual",
-    snapshots: [
-      { period: "2025", eps: 5.50, price: 225 },
-      { period: "2024", eps: 5.10, price: 190 },
-      { period: "2023", eps: 5.00, price: 180 },
-    ],
-  },
-  {
-    symbol: "MSFT",
-    name: "Microsoft Corp.",
-    sector: "Information Technology",
-    periodicity: "annual",
-    snapshots: [
-      { period: "2025", eps: 11.80, price: 455 },
-      { period: "2024", eps: 10.60, price: 410 },
-      { period: "2023", eps: 9.30, price: 345 },
-    ],
-  },
-];
 
 // ===== 유틸 =====
 function calcPER(eps: number, price: number): number | undefined {
@@ -192,11 +97,19 @@ function aggregateSectorPER(rows: TickerRow[]) {
     const pers = arr
       .map((r) => latestSnapshot(r).per)
       .filter((x): x is number => typeof x === "number");
-    const avg = pers.length ? pers.reduce((a, b) => a + b, 0) / pers.length : undefined;
+    const avg = pers.length
+      ? pers.reduce((a, b) => a + b, 0) / pers.length
+      : undefined;
     const sorted = [...pers].sort((a, b) => a - b);
     const low = sorted[0];
     const high = sorted[sorted.length - 1];
-    return { sector, avgPER: avg, lowPER: low, highPER: high, count: arr.length };
+    return {
+      sector,
+      avgPER: avg,
+      lowPER: low,
+      highPER: high,
+      count: arr.length,
+    };
   });
 }
 
@@ -205,9 +118,16 @@ function risingSectors(rows: TickerRow[]) {
   // 최근-이전 가격 상승률 평균으로 판단
   return Object.entries(groups).map(([sector, arr]) => {
     const changes = arr
-      .map((r) => pctChange(r.snapshots[0].price, r.snapshots[1]?.price ?? r.snapshots[0].price))
+      .map((r) =>
+        pctChange(
+          r.snapshots[0].price,
+          r.snapshots[1]?.price ?? r.snapshots[0].price
+        )
+      )
       .filter((x): x is number => typeof x === "number");
-    const avgRise = changes.length ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
+    const avgRise = changes.length
+      ? changes.reduce((a, b) => a + b, 0) / changes.length
+      : 0;
     return { sector, avgRise };
   });
 }
@@ -218,7 +138,11 @@ function risingTickers(rows: TickerRow[]) {
       symbol: r.symbol,
       name: r.name,
       sector: r.sector,
-      rise: pctChange(r.snapshots[0].price, r.snapshots[1]?.price ?? r.snapshots[0].price) ?? 0,
+      rise:
+        pctChange(
+          r.snapshots[0].price,
+          r.snapshots[1]?.price ?? r.snapshots[0].price
+        ) ?? 0,
       latest: r.snapshots[0],
       prev: r.snapshots[1] ?? r.snapshots[0],
     }))
@@ -243,12 +167,20 @@ function DataRow({ label, value }: { label: string; value?: number | string }) {
   return (
     <div className="flex items-center justify-between py-1 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{typeof value === "number" ? value.toFixed(2) : value ?? "-"}</span>
+      <span className="font-medium">
+        {typeof value === "number" ? value.toFixed(2) : value ?? "-"}
+      </span>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-4 sm:p-6">
@@ -268,21 +200,41 @@ export default function USStockSectorScreener() {
   const [sectorFilter, setSectorFilter] = useState<string | "all">("all");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
+  const [perMax, setPerMax] = useState<number | null>(null);
+  const [epsMin, setEpsMin] = useState<number | null>(null);
 
-  const enriched = useMemo(() => enrichWithPER(MOCK), []);
-  const base = useMemo(() => byPeriodicity(enriched, periodicity), [enriched, periodicity]);
+  const enriched = useMemo(() => enrichWithPER(TESTDATA), []);
+  const base = useMemo(
+    () => byPeriodicity(enriched, periodicity),
+    [enriched, periodicity]
+  );
   const filtered = useMemo(
-    () => base.filter((r) => (sectorFilter === "all" ? true : r.sector === sectorFilter)),
-    [base, sectorFilter]
+    () =>
+      base.filter((r) => {
+        if (sectorFilter !== "all" && r.sector !== sectorFilter) return false;
+
+        const latest = latestSnapshot(r);
+        if (perMax !== null && (latest.per ?? Infinity) > perMax) return false;
+        if (epsMin !== null && latest.eps < epsMin) return false;
+
+        return true;
+      }),
+    [base, sectorFilter, perMax, epsMin]
   );
 
   const sectorAgg = useMemo(() => aggregateSectorPER(filtered), [filtered]);
-  const topRisingSectors = useMemo(() => risingSectors(filtered).sort((a, b) => b.avgRise - a.avgRise), [filtered]);
+  const topRisingSectors = useMemo(
+    () => risingSectors(filtered).sort((a, b) => b.avgRise - a.avgRise),
+    [filtered]
+  );
   const topRisingTickers = useMemo(
     () =>
       risingTickers(
         filtered.filter((r) =>
-          search ? r.symbol.toLowerCase().includes(search.toLowerCase()) || r.name.toLowerCase().includes(search.toLowerCase()) : true
+          search
+            ? r.symbol.toLowerCase().includes(search.toLowerCase()) ||
+              r.name.toLowerCase().includes(search.toLowerCase())
+            : true
         )
       ),
     [filtered, search]
@@ -297,23 +249,31 @@ export default function USStockSectorScreener() {
   ];
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
-      <motion.h1 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="text-2xl md:text-3xl font-bold mb-2">
+    <div className="p-4 sm:p-6 md:p-8 w-screen mx-auto">
+      <motion.h1
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-2xl md:text-3xl font-bold mb-2"
+      >
         미국 주식 섹터 분석 스크리너 <Badge variant="secondary">v0.1</Badge>
       </motion.h1>
       <p className="text-sm text-muted-foreground mb-6">
-        목표: 섹터/종목의 펀더멘털(PER 중심)과 가격 모멘텀을 단순 조합하여, <b>뉴스/정치 이벤트를 배제</b>한 정량 의사결정 기준을 제공합니다.
+        목표: 섹터/종목의 펀더멘털(PER 중심)과 가격 모멘텀을 단순 조합하여,{" "}
+        <b>뉴스/정치 이벤트를 배제</b>한 정량 의사결정 기준을 제공합니다.
       </p>
 
       {/* 컨트롤 바 */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center mb-6">
-        <Tabs value={periodicity} onValueChange={(v) => setPeriodicity(v as Periodicity)}>
+        <Tabs
+          value={periodicity}
+          onValueChange={(v) => setPeriodicity(v as Periodicity)}
+        >
           <TabsList>
             <TabsTrigger value="quarterly">분기</TabsTrigger>
             <TabsTrigger value="annual">연간</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Select value={sectorFilter} onValueChange={setSectorFilter as any}>
+        <Select value={sectorFilter} onValueChange={setSectorFilter}>
           <SelectTrigger className="w-full sm:w-64">
             <SelectValue placeholder="섹터 필터" />
           </SelectTrigger>
@@ -328,9 +288,47 @@ export default function USStockSectorScreener() {
         </Select>
         <div className="flex-1" />
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Input placeholder="심볼/종목명 검색" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-64" />
-          <Button variant="secondary" className="gap-2"><ListFilter className="w-4 h-4"/>필터</Button>
+          <Input
+            placeholder="심볼/종목명 검색"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-64"
+          />
+          <Button variant="secondary" className="gap-2">
+            <ListFilter className="w-4 h-4" />
+            필터
+          </Button>
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 items-center mb-6">
+        <Input
+          type="number"
+          placeholder="PER 최대값 (예: 20)"
+          value={perMax ?? ""}
+          onChange={(e) =>
+            setPerMax(e.target.value ? Number(e.target.value) : null)
+          }
+          className="w-full sm:w-48"
+        />
+        <Input
+          type="number"
+          placeholder="EPS 최소값 (예: 1.0)"
+          value={epsMin ?? ""}
+          onChange={(e) =>
+            setEpsMin(e.target.value ? Number(e.target.value) : null)
+          }
+          className="w-full sm:w-48"
+        />
+        <Button
+          variant="outline"
+          onClick={() => {
+            setPerMax(null);
+            setEpsMin(null);
+          }}
+        >
+          조건 초기화
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -339,7 +337,10 @@ export default function USStockSectorScreener() {
           <Section title="섹터별 PER 집계 (평균/상·하위)">
             <div className="w-full h-72">
               <ResponsiveContainer>
-                <BarChart data={sectorAgg} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                <BarChart
+                  data={sectorAgg}
+                  margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sector" tick={{ fontSize: 12 }} />
                   <YAxis />
@@ -356,11 +357,16 @@ export default function USStockSectorScreener() {
           <Section title="최근 상승 섹터 (평균 상승률)">
             <div className="w-full h-64">
               <ResponsiveContainer>
-                <BarChart data={topRisingSectors} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                <BarChart
+                  data={topRisingSectors}
+                  margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sector" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
-                  <Tooltip formatter={(v: any) => `${(v * 100).toFixed(2)}%`} />
+                  <Tooltip
+                    formatter={(v) => `${((v as number) * 100).toFixed(2)}%`}
+                  />
                   <Bar dataKey="avgRise" name="평균 상승률" />
                 </BarChart>
               </ResponsiveContainer>
@@ -373,29 +379,63 @@ export default function USStockSectorScreener() {
           <Section title="최근 상승 종목">
             <div className="space-y-2">
               {topRisingTickers.slice(0, rowsPerPage).map((t) => (
-                <Card key={`${t.symbol}-${t.latest.period}`} className="border-muted rounded-xl">
+                <Card
+                  key={`${t.symbol}-${t.latest.period}`}
+                  className="border-muted rounded-xl"
+                >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-semibold text-base">{t.name} <span className="text-muted-foreground">({t.symbol})</span></div>
-                        <div className="text-xs text-muted-foreground">{t.sector}</div>
+                        <div className="font-semibold text-base">
+                          {t.name}{" "}
+                          <span className="text-muted-foreground">
+                            ({t.symbol})
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {t.sector}
+                        </div>
                       </div>
-                      <Badge variant={t.rise >= 0 ? "default" : "destructive"} className="gap-1">
-                        {t.rise >= 0 ? <TrendingUp className="w-3 h-3"/> : <TrendingDown className="w-3 h-3"/>}
+                      <Badge
+                        variant={t.rise >= 0 ? "default" : "destructive"}
+                        className="gap-1"
+                      >
+                        {t.rise >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
                         {(t.rise * 100).toFixed(1)}%
                       </Badge>
                     </div>
 
                     {/* (3) 조건: 상승 시작 이전 분기 재무 */}
-                    <RiseContext row={enriched.find((r) => r.symbol === t.symbol && r.periodicity === periodicity)!} />
+                    <RiseContext
+                      row={
+                        enriched.find(
+                          (r) =>
+                            r.symbol === t.symbol &&
+                            r.periodicity === periodicity
+                        )!
+                      }
+                    />
                   </CardContent>
                 </Card>
               ))}
               <div className="flex justify-end pt-2">
-                <Select value={String(rowsPerPage)} onValueChange={(v) => setRowsPerPage(Number(v))}>
-                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <Select
+                  value={String(rowsPerPage)}
+                  onValueChange={(v) => setRowsPerPage(Number(v))}
+                >
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {[5,10,20,50].map(n => <SelectItem key={n} value={String(n)}>{n}개</SelectItem>)}
+                    {[5, 10, 20, 50].map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}개
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -409,13 +449,22 @@ export default function USStockSectorScreener() {
         <Card className="bg-muted/40 rounded-2xl">
           <CardContent className="p-4 sm:p-6 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 mt-0.5"/>
+              <Info className="w-4 h-4 mt-0.5" />
               <div>
                 <p className="mb-2 font-medium">판단 기준(초안)</p>
                 <ul className="list-disc ml-5 space-y-1">
-                  <li>섹터 선별: 최근 분기/연간 기준 평균 상승률 상위 섹터 → 해당 섹터 중 PER가 평균 이하이면서 EPS가 개선되는 종목 우선</li>
-                  <li>종목 선별: 직전→최신 가격 상승 & PER이 과거 대비 과도하지 않은지 체크</li>
-                  <li>데이터는 뉴스/정치 이벤트 배제. 오로지 재무와 가격 시그널만 반영</li>
+                  <li>
+                    섹터 선별: 최근 분기/연간 기준 평균 상승률 상위 섹터 → 해당
+                    섹터 중 PER가 평균 이하이면서 EPS가 개선되는 종목 우선
+                  </li>
+                  <li>
+                    종목 선별: 직전→최신 가격 상승 & PER이 과거 대비 과도하지
+                    않은지 체크
+                  </li>
+                  <li>
+                    데이터는 뉴스/정치 이벤트 배제. 오로지 재무와 가격 시그널만
+                    반영
+                  </li>
                 </ul>
               </div>
             </div>
@@ -434,9 +483,19 @@ function RiseContext({ row }: { row: TickerRow }) {
   const beforeStart = row.snapshots[prevIdx];
 
   const series = [
-    { label: beforeStart.period, price: beforeStart.price, eps: beforeStart.eps, per: beforeStart.per },
+    {
+      label: beforeStart.period,
+      price: beforeStart.price,
+      eps: beforeStart.eps,
+      per: beforeStart.per,
+    },
     { label: start.period, price: start.price, eps: start.eps, per: start.per },
-    { label: latest.period, price: latest.price, eps: latest.eps, per: latest.per },
+    {
+      label: latest.period,
+      price: latest.price,
+      eps: latest.eps,
+      per: latest.per,
+    },
   ];
 
   return (
@@ -444,7 +503,9 @@ function RiseContext({ row }: { row: TickerRow }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="bg-background/60">
           <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground mb-1">상승 시작 이전</div>
+            <div className="text-xs text-muted-foreground mb-1">
+              상승 시작 이전
+            </div>
             <DataRow label="기간" value={beforeStart.period} />
             <DataRow label="가격" value={beforeStart.price} />
             <DataRow label="EPS" value={beforeStart.eps} />
@@ -473,7 +534,10 @@ function RiseContext({ row }: { row: TickerRow }) {
 
       <div className="w-full h-40 mt-3">
         <ResponsiveContainer>
-          <LineChart data={series} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+          <LineChart
+            data={series}
+            margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" />
             <YAxis yAxisId="left" />

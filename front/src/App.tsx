@@ -1,4 +1,4 @@
-import USStockSectorScreener from "./components/ui/USStockSectorScreener";
+import USStockSectorScreener from "./components/USStockSectorScreener";
 
 
 function App() {
