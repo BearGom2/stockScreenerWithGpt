@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.13",
@@ -21,7 +22,8 @@
     "react-dom": "^19.1.1",
     "recharts": "^3.2.0",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "yahoo-finance2": "^2.13.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
