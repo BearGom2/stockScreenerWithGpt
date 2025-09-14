@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { fetchSP500Data } from "../lib/api";
 import {
   TrendingUp,
   TrendingDown,
@@ -15,8 +16,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  LineChart,
-  Line,
   Legend,
 } from "recharts";
 import { Card, CardContent } from "./card";
@@ -31,148 +30,23 @@ import {
 } from "./select";
 import { Input } from "./input";
 import { Button } from "./button";
-import { TESTDATA } from "../data/testData";
-
-export type Periodicity = "quarterly" | "annual";
-export type Sector =
-  | "Information Technology"
-  | "Consumer Discretionary"
-  | "Health Care"
-  | "Financials"
-  | "Industrials";
-
-export interface FundamentalsSnapshot {
-  // 단순화를 위해 필요한 최소 항목만
-  period: string; // e.g. "2025Q2" or "2024"
-  eps: number; // 주당순이익
-  price: number; // 해당 스냅샷 시점 종가(백테스트 단순화)
-  per?: number; // price / eps (eps<=0이면 undefined 처리)
-}
-
-export interface TickerRow {
-  symbol: string;
-  name: string;
-  sector: Sector;
-  periodicity: Periodicity; // 본 스냅샷 시계열의 주기
-  snapshots: FundamentalsSnapshot[]; // 최신순 정렬 가정
-}
-
-// ===== 유틸 =====
-function calcPER(eps: number, price: number): number | undefined {
-  if (eps <= 0) return undefined;
-  return price / eps;
-}
-
-function enrichWithPER(rows: TickerRow[]): TickerRow[] {
-  return rows.map((r) => ({
-    ...r,
-    snapshots: r.snapshots.map((s) => ({ ...s, per: calcPER(s.eps, s.price) })),
-  }));
-}
-
-function latestSnapshot(row: TickerRow) {
-  return row.snapshots[0]; // 최신순 가정
-}
-
-function pctChange(a: number, b: number) {
-  if (b === 0) return undefined;
-  return (a - b) / b;
-}
-
-function byPeriodicity(rows: TickerRow[], p: Periodicity) {
-  return rows.filter((r) => r.periodicity === p);
-}
-
-function groupBySector(rows: TickerRow[]) {
-  return rows.reduce<Record<string, TickerRow[]>>((acc, r) => {
-    acc[r.sector] = acc[r.sector] || [];
-    acc[r.sector].push(r);
-    return acc;
-  }, {});
-}
-
-function aggregateSectorPER(rows: TickerRow[]) {
-  const groups = groupBySector(rows);
-  return Object.entries(groups).map(([sector, arr]) => {
-    const pers = arr
-      .map((r) => latestSnapshot(r).per)
-      .filter((x): x is number => typeof x === "number");
-    const avg = pers.length
-      ? pers.reduce((a, b) => a + b, 0) / pers.length
-      : undefined;
-    const sorted = [...pers].sort((a, b) => a - b);
-    const low = sorted[0];
-    const high = sorted[sorted.length - 1];
-    return {
-      sector,
-      avgPER: avg,
-      lowPER: low,
-      highPER: high,
-      count: arr.length,
-    };
-  });
-}
-
-function risingSectors(rows: TickerRow[]) {
-  const groups = groupBySector(rows);
-  // 최근-이전 가격 상승률 평균으로 판단
-  return Object.entries(groups).map(([sector, arr]) => {
-    const changes = arr
-      .map((r) =>
-        pctChange(
-          r.snapshots[0].price,
-          r.snapshots[1]?.price ?? r.snapshots[0].price
-        )
-      )
-      .filter((x): x is number => typeof x === "number");
-    const avgRise = changes.length
-      ? changes.reduce((a, b) => a + b, 0) / changes.length
-      : 0;
-    return { sector, avgRise };
-  });
-}
-
-function risingTickers(rows: TickerRow[]) {
-  return rows
-    .map((r) => ({
-      symbol: r.symbol,
-      name: r.name,
-      sector: r.sector,
-      rise:
-        pctChange(
-          r.snapshots[0].price,
-          r.snapshots[1]?.price ?? r.snapshots[0].price
-        ) ?? 0,
-      latest: r.snapshots[0],
-      prev: r.snapshots[1] ?? r.snapshots[0],
-    }))
-    .sort((a, b) => b.rise - a.rise);
-}
-
-function findRiseStartIndex(row: TickerRow): number {
-  // 단순 룰: 최근 시점이 직전 대비 상승이면 그 직전이 '상승 시작'으로 간주,
-  // 아니라면 더 과거로 이동. (실전에서는 스윙탐지/모멘텀 룰로 교체 가능)
-  for (let i = 0; i < row.snapshots.length - 1; i++) {
-    const now = row.snapshots[i];
-    const prev = row.snapshots[i + 1];
-    if (now.price > prev.price) {
-      return i + 1; // 상승 시작의 전 시점 index
-    }
-  }
-  return row.snapshots.length - 1; // 못 찾으면 맨 뒤
-}
-
-// ===== 테이블 컴포넌트 =====
-function DataRow({ label, value }: { label: string; value?: number | string }) {
-  return (
-    <div className="flex items-center justify-between py-1 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">
-        {typeof value === "number" ? value.toFixed(2) : value ?? "-"}
-      </span>
-    </div>
-  );
-}
+import {
+  aggregateSectorPER,
+  byPeriodicity,
+  enrichWithPER,
+  latestSnapshot,
+  risingSectors,
+  risingTickers,
+  type Periodicity,
+  type Sector,
+  type TickerRow,
+} from "../lib/stocks";
+import StockTable from "./StockTable";
+import StockChart from "./StockChart";
+import RiseContext from "./RiseContext";
+import StockDetailModal from "./StockDetailModal";
+import SectorDetailModal from "./SectorDetailModal";
+import { adaptApiData, type ApiTicker } from "../lib/adapter";
 
 function Section({
   title,
@@ -202,8 +76,26 @@ export default function USStockSectorScreener() {
   const [search, setSearch] = useState("");
   const [perMax, setPerMax] = useState<number | null>(null);
   const [epsMin, setEpsMin] = useState<number | null>(null);
+  const [selectedRow, setSelectedRow] = useState<TickerRow | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [sectorModalOpen, setSectorModalOpen] = useState(false);
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [tickers, setTickers] = useState<ApiTicker[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const enriched = useMemo(() => enrichWithPER(TESTDATA), []);
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const data = await fetchSP500Data();
+      setTickers(data);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const enriched = useMemo(() => {
+    return enrichWithPER(adaptApiData(tickers));
+  }, [tickers]);
   const base = useMemo(
     () => byPeriodicity(enriched, periodicity),
     [enriched, periodicity]
@@ -239,14 +131,21 @@ export default function USStockSectorScreener() {
       ),
     [filtered, search]
   );
-
   const sectors: Sector[] = [
-    "Information Technology",
-    "Consumer Discretionary",
-    "Health Care",
-    "Financials",
     "Industrials",
+    "Healthcare",
+    "Technology",
+    "Utilities",
+    "Financial Services",
+    "Basic Materials",
+    "Consumer Cyclical",
+    "Real Estate",
+    "Communication Services",
+    "Consumer Defensive",
+    "Energy",
   ];
+
+  if (loading) return <div className="p-6">Loading S&P500 data...</div>;
 
   return (
     <div className="p-4 sm:p-6 md:p-8 w-screen mx-auto">
@@ -330,9 +229,12 @@ export default function USStockSectorScreener() {
           조건 초기화
         </Button>
       </div>
-
+      <Section title="종목 테이블 뷰 (정렬 가능)">
+        <StockTable rows={filtered} />
+      </Section>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* 좌: 섹터 집계 */}
+
         <div className="lg:col-span-3 space-y-4">
           <Section title="섹터별 PER 집계 (평균/상·하위)">
             <div className="w-full h-72">
@@ -340,6 +242,12 @@ export default function USStockSectorScreener() {
                 <BarChart
                   data={sectorAgg}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                  onClick={(e) => {
+                    if (e && e.activeLabel) {
+                      setSelectedSector(e.activeLabel);
+                      setSectorModalOpen(true);
+                    }
+                  }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sector" tick={{ fontSize: 12 }} />
@@ -360,6 +268,12 @@ export default function USStockSectorScreener() {
                 <BarChart
                   data={topRisingSectors}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                  onClick={(e) => {
+                    if (e && e.activeLabel) {
+                      setSelectedSector(e.activeLabel);
+                      setSectorModalOpen(true);
+                    }
+                  }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sector" tick={{ fontSize: 12 }} />
@@ -419,6 +333,32 @@ export default function USStockSectorScreener() {
                         )!
                       }
                     />
+                    <StockChart
+                      row={
+                        enriched.find(
+                          (r) =>
+                            r.symbol === t.symbol &&
+                            r.periodicity === periodicity
+                        )!
+                      }
+                    />
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const row = enriched.find(
+                            (r) =>
+                              r.symbol === t.symbol &&
+                              r.periodicity === periodicity
+                          )!;
+                          setSelectedRow(row);
+                          setDetailOpen(true);
+                        }}
+                      >
+                        상세보기
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -471,84 +411,17 @@ export default function USStockSectorScreener() {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-}
-
-function RiseContext({ row }: { row: TickerRow }) {
-  const startIdx = findRiseStartIndex(row);
-  const prevIdx = Math.min(startIdx + 1, row.snapshots.length - 1); // '상승 시작 이전 시점'
-  const latest = row.snapshots[0];
-  const start = row.snapshots[startIdx];
-  const beforeStart = row.snapshots[prevIdx];
-
-  const series = [
-    {
-      label: beforeStart.period,
-      price: beforeStart.price,
-      eps: beforeStart.eps,
-      per: beforeStart.per,
-    },
-    { label: start.period, price: start.price, eps: start.eps, per: start.per },
-    {
-      label: latest.period,
-      price: latest.price,
-      eps: latest.eps,
-      per: latest.per,
-    },
-  ];
-
-  return (
-    <div className="mt-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card className="bg-background/60">
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground mb-1">
-              상승 시작 이전
-            </div>
-            <DataRow label="기간" value={beforeStart.period} />
-            <DataRow label="가격" value={beforeStart.price} />
-            <DataRow label="EPS" value={beforeStart.eps} />
-            <DataRow label="PER" value={beforeStart.per} />
-          </CardContent>
-        </Card>
-        <Card className="bg-background/60">
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground mb-1">상승 시작</div>
-            <DataRow label="기간" value={start.period} />
-            <DataRow label="가격" value={start.price} />
-            <DataRow label="EPS" value={start.eps} />
-            <DataRow label="PER" value={start.per} />
-          </CardContent>
-        </Card>
-        <Card className="bg-background/60">
-          <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground mb-1">최신</div>
-            <DataRow label="기간" value={latest.period} />
-            <DataRow label="가격" value={latest.price} />
-            <DataRow label="EPS" value={latest.eps} />
-            <DataRow label="PER" value={latest.per} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="w-full h-40 mt-3">
-        <ResponsiveContainer>
-          <LineChart
-            data={series}
-            margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="price" name="가격" yAxisId="left" />
-            <Line type="monotone" dataKey="eps" name="EPS" yAxisId="right" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <SectorDetailModal
+        open={sectorModalOpen}
+        onOpenChange={setSectorModalOpen}
+        sector={selectedSector}
+        rows={filtered}
+      />
+      <StockDetailModal
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        row={selectedRow}
+      />
     </div>
   );
 }
