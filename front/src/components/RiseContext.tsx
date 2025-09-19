@@ -9,10 +9,15 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import type { TickerRow } from "../lib/stocks";
-import { findRiseStartIndex } from "../lib/stocks"; // 이미 util에 있는 함수라고 가정
+import type { TickerRow } from "../types";
+import { findRiseStartIndex } from "../lib/stocks";
 import DataRow from "./DataRow";
 
+/**
+ * Display contextual information about the rise of a single ticker.  Shows
+ * snapshots from before the rise, at the rise, and the latest period, and
+ * renders a small line chart comparing price and EPS across these points.
+ */
 export default function RiseContext({ row }: { row: TickerRow }) {
   const startIdx = findRiseStartIndex(row);
   const prevIdx = Math.min(startIdx + 1, row.snapshots.length - 1);
@@ -41,9 +46,7 @@ export default function RiseContext({ row }: { row: TickerRow }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="bg-background/60">
           <CardContent className="p-3">
-            <div className="text-xs text-muted-foreground mb-1">
-              상승 시작 이전
-            </div>
+            <div className="text-xs text-muted-foreground mb-1">상승 시작 이전</div>
             <DataRow label="기간" value={beforeStart.period} />
             <DataRow label="가격" value={beforeStart.price} />
             <DataRow label="EPS" value={beforeStart.eps} />
@@ -117,10 +120,7 @@ export default function RiseContext({ row }: { row: TickerRow }) {
 
       <div className="w-full h-40 mt-3">
         <ResponsiveContainer>
-          <LineChart
-            data={series}
-            margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-          >
+          <LineChart data={series} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" />
             <YAxis yAxisId="left" />

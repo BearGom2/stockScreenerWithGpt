@@ -2,15 +2,23 @@ import { useState } from "react";
 import { Card, CardContent } from "./card";
 import { Badge } from "./badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import type { TickerRow } from "../lib/stocks";
+import type { TickerRow } from "../types";
 import { latestSnapshot } from "../lib/stocks";
 
 interface StockTableProps {
   rows: TickerRow[];
 }
 
+/**
+ * Displays a paginated, sortable table of ticker rows.  Sorting is client
+ * side only and toggles between ascending and descending for numeric and
+ * string fields.  Pagination is fixed at 10 rows per page to avoid large
+ * tables overwhelming the UI.
+ */
 export default function StockTable({ rows }: StockTableProps) {
-  const [sortKey, setSortKey] = useState<"symbol" | "per" | "eps" | "price" | "rise">("rise");
+  const [sortKey, setSortKey] = useState<
+    "symbol" | "per" | "eps" | "price" | "rise"
+  >("rise");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const rowsPerPage = 10;
@@ -48,7 +56,9 @@ export default function StockTable({ rows }: StockTableProps) {
     if (typeof valA === "string" && typeof valB === "string") {
       return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
     } else {
-      return sortOrder === "asc" ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+      return sortOrder === "asc"
+        ? (valA as number) - (valB as number)
+        : (valB as number) - (valA as number);
     }
   });
 
@@ -70,11 +80,17 @@ export default function StockTable({ rows }: StockTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b">
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("symbol")}>종목</th>
+                <th className="p-2 cursor-pointer" onClick={() => handleSort("symbol")}>
+                  종목
+                </th>
                 <th className="p-2 cursor-pointer" onClick={() => handleSort("per")}>PER</th>
                 <th className="p-2 cursor-pointer" onClick={() => handleSort("eps")}>EPS</th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("price")}>가격</th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("rise")}>상승률</th>
+                <th className="p-2 cursor-pointer" onClick={() => handleSort("price")}>
+                  가격
+                </th>
+                <th className="p-2 cursor-pointer" onClick={() => handleSort("rise")}>
+                  상승률
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -82,16 +98,24 @@ export default function StockTable({ rows }: StockTableProps) {
                 const latest = latestSnapshot(row);
                 const prev = row.snapshots[1] ?? latest;
                 const rise = prev ? (latest.price - prev.price) / prev.price : 0;
-
                 return (
                   <tr key={row.symbol} className="border-b hover:bg-muted/40">
-                    <td className="p-2">{row.name} <span className="text-muted-foreground">({row.symbol})</span></td>
+                    <td className="p-2">
+                      {row.name} <span className="text-muted-foreground">({row.symbol})</span>
+                    </td>
                     <td className="p-2">{latest.per?.toFixed(2) ?? "-"}</td>
                     <td className="p-2">{latest.eps.toFixed(2)}</td>
                     <td className="p-2">{latest.price.toFixed(2)}</td>
                     <td className="p-2">
-                      <Badge variant={rise >= 0 ? "default" : "destructive"} className="gap-1">
-                        {rise >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      <Badge
+                        variant={rise >= 0 ? "default" : "destructive"}
+                        className="gap-1"
+                      >
+                        {rise >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
                         {(rise * 100).toFixed(1)}%
                       </Badge>
                     </td>

@@ -37,16 +37,16 @@ import {
   latestSnapshot,
   risingSectors,
   risingTickers,
-  type Periodicity,
-  type Sector,
-  type TickerRow,
 } from "../lib/stocks";
+import type { Periodicity, Sector, TickerRow, SectorFilter } from "../types";
+import { SECTORS } from "../types";
 import StockTable from "./StockTable";
 import StockChart from "./StockChart";
 import RiseContext from "./RiseContext";
 import StockDetailModal from "./StockDetailModal";
 import SectorDetailModal from "./SectorDetailModal";
-import { adaptApiData, type ApiTicker } from "../lib/adapter";
+// After refactoring, fetchSP500Data already returns TickerRow[] so adaptApiData
+// and ApiTicker types are no longer imported here.
 
 function Section({
   title,
@@ -71,7 +71,7 @@ function Section({
 // ===== 메인 컴포넌트 =====
 export default function USStockSectorScreener() {
   const [periodicity, setPeriodicity] = useState<Periodicity>("quarterly");
-  const [sectorFilter, setSectorFilter] = useState<string | "all">("all");
+  const [sectorFilter, setSectorFilter] = useState<SectorFilter>("all");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [perMax, setPerMax] = useState<number | null>(null);
@@ -79,8 +79,9 @@ export default function USStockSectorScreener() {
   const [selectedRow, setSelectedRow] = useState<TickerRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sectorModalOpen, setSectorModalOpen] = useState(false);
-  const [selectedSector, setSelectedSector] = useState<string | null>(null);
-  const [tickers, setTickers] = useState<ApiTicker[]>([]);
+  const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
+  // The tickers state now holds TickerRow objects rather than raw API data.
+  const [tickers, setTickers] = useState<TickerRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -94,56 +95,38 @@ export default function USStockSectorScreener() {
   }, []);
 
   const enriched = useMemo(() => {
-    return enrichWithPER(adaptApiData(tickers));
+    // The backend does not compute PER; compute it here.
+    return enrichWithPER(tickers);
   }, [tickers]);
   const base = useMemo(
     () => byPeriodicity(enriched, periodicity),
     [enriched, periodicity]
   );
-  const filtered = useMemo(
-    () =>
-      base.filter((r) => {
-        if (sectorFilter !== "all" && r.sector !== sectorFilter) return false;
-
-        const latest = latestSnapshot(r);
-        if (perMax !== null && (latest.per ?? Infinity) > perMax) return false;
-        if (epsMin !== null && latest.eps < epsMin) return false;
-
-        return true;
-      }),
-    [base, sectorFilter, perMax, epsMin]
-  );
+  const filtered = useMemo(() => {
+    return base.filter((r) => {
+      if (sectorFilter !== "all" && r.sector !== sectorFilter) return false;
+      const latest = latestSnapshot(r);
+      if (perMax !== null && (latest.per ?? Infinity) > perMax) return false;
+      if (epsMin !== null && latest.eps < epsMin) return false;
+      return true;
+    });
+  }, [base, sectorFilter, perMax, epsMin]);
 
   const sectorAgg = useMemo(() => aggregateSectorPER(filtered), [filtered]);
   const topRisingSectors = useMemo(
     () => risingSectors(filtered).sort((a, b) => b.avgRise - a.avgRise),
     [filtered]
   );
-  const topRisingTickers = useMemo(
-    () =>
-      risingTickers(
-        filtered.filter((r) =>
-          search
-            ? r.symbol.toLowerCase().includes(search.toLowerCase()) ||
-              r.name.toLowerCase().includes(search.toLowerCase())
-            : true
-        )
-      ),
-    [filtered, search]
-  );
-  const sectors: Sector[] = [
-    "Industrials",
-    "Healthcare",
-    "Technology",
-    "Utilities",
-    "Financial Services",
-    "Basic Materials",
-    "Consumer Cyclical",
-    "Real Estate",
-    "Communication Services",
-    "Consumer Defensive",
-    "Energy",
-  ];
+  const topRisingTickers = useMemo(() => {
+    return risingTickers(
+      filtered.filter((r) =>
+        search
+          ? r.symbol.toLowerCase().includes(search.toLowerCase()) ||
+            r.name.toLowerCase().includes(search.toLowerCase())
+          : true
+      )
+    );
+  }, [filtered, search]);
 
   if (loading) return <div className="p-6">Loading S&P500 data...</div>;
 
@@ -172,13 +155,16 @@ export default function USStockSectorScreener() {
             <TabsTrigger value="annual">연간</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Select value={sectorFilter} onValueChange={setSectorFilter}>
+        <Select
+          value={sectorFilter}
+          onValueChange={(v) => setSectorFilter(v as SectorFilter)}
+        >
           <SelectTrigger className="w-full sm:w-64">
             <SelectValue placeholder="섹터 필터" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 섹터</SelectItem>
-            {sectors.map((s) => (
+            {SECTORS.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>
@@ -234,7 +220,6 @@ export default function USStockSectorScreener() {
       </Section>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* 좌: 섹터 집계 */}
-
         <div className="lg:col-span-3 space-y-4">
           <Section title="섹터별 PER 집계 (평균/상·하위)">
             <div className="w-full h-72">
@@ -243,8 +228,9 @@ export default function USStockSectorScreener() {
                   data={sectorAgg}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                   onClick={(e) => {
-                    if (e && e.activeLabel) {
-                      setSelectedSector(e.activeLabel);
+                    const label = (e && e.activeLabel) as string | undefined;
+                    if (label) {
+                      setSelectedSector(label as Sector);
                       setSectorModalOpen(true);
                     }
                   }}
@@ -269,15 +255,20 @@ export default function USStockSectorScreener() {
                   data={topRisingSectors}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                   onClick={(e) => {
-                    if (e && e.activeLabel) {
-                      setSelectedSector(e.activeLabel);
+                    const label = (e && e.activeLabel) as string | undefined;
+                    if (label) {
+                      setSelectedSector(label as Sector);
                       setSectorModalOpen(true);
                     }
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sector" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
+                  <YAxis
+                    tickFormatter={(v) =>
+                      `${((v as number) * 100).toFixed(0)}%`
+                    }
+                  />
                   <Tooltip
                     formatter={(v) => `${((v as number) * 100).toFixed(2)}%`}
                   />
@@ -322,7 +313,6 @@ export default function USStockSectorScreener() {
                         {(t.rise * 100).toFixed(1)}%
                       </Badge>
                     </div>
-
                     {/* (3) 조건: 상승 시작 이전 분기 재무 */}
                     <RiseContext
                       row={
@@ -398,8 +388,8 @@ export default function USStockSectorScreener() {
                     섹터 중 PER가 평균 이하이면서 EPS가 개선되는 종목 우선
                   </li>
                   <li>
-                    종목 선별: 직전→최신 가격 상승 & PER이 과거 대비 과도하지
-                    않은지 체크
+                    종목 선별: 직전→최신 가격 상승 &amp; PER이 과거 대비
+                    과도하지 않은지 체크
                   </li>
                   <li>
                     데이터는 뉴스/정치 이벤트 배제. 오로지 재무와 가격 시그널만
