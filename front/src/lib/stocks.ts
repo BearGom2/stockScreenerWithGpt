@@ -80,10 +80,12 @@ export function aggregateSectorPER(rows: TickerRow[]) {
   const groups = groupBySector(rows);
   return Object.entries(groups).map(([sector, arr]) => {
     const pers = arr
-      .map((r) => latestSnapshot(r).per)
+      .map((r) => latestSnapshot(r)?.per)
       .filter((x): x is number => typeof x === "number");
     const avg =
-      pers.length > 0 ? pers.reduce((a, b) => a + b, 0) / pers.length : undefined;
+      pers.length > 0
+        ? pers.reduce((a, b) => a + b, 0) / pers.length
+        : undefined;
     const sorted = [...pers].sort((a, b) => a - b);
     const low = sorted[0];
     const high = sorted[sorted.length - 1];
@@ -108,9 +110,9 @@ export function risingSectors(rows: TickerRow[]) {
     const changes = arr
       .map((r) =>
         pctChange(
-          r.snapshots[0].price,
-          r.snapshots[1]?.price ?? r.snapshots[0].price,
-        ),
+          r.snapshots[0]?.price,
+          r.snapshots[1]?.price ?? r.snapshots[0]?.price
+        )
       )
       .filter((x): x is number => typeof x === "number");
     const avgRise =
@@ -135,7 +137,7 @@ export function risingTickers(rows: TickerRow[]) {
         symbol: r.symbol,
         name: r.name,
         sector: r.sector,
-        rise: pctChange(latest.price, prev.price) ?? 0,
+        rise: pctChange(latest?.price, prev?.price) ?? 0,
         latest,
         prev,
       };

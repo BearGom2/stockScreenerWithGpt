@@ -36,25 +36,31 @@ export default function StockTable({ rows }: StockTableProps) {
         valB = b.symbol;
         break;
       case "per":
-        valA = latestA.per ?? 0;
-        valB = latestB.per ?? 0;
+        valA = latestA?.per ?? 0;
+        valB = latestB?.per ?? 0;
         break;
       case "eps":
-        valA = latestA.eps;
-        valB = latestB.eps;
+        valA = latestA?.eps;
+        valB = latestB?.eps;
         break;
       case "price":
-        valA = latestA.price;
-        valB = latestB.price;
+        valA = latestA?.price;
+        valB = latestB?.price;
         break;
       case "rise":
-        valA = latestA.price - (a.snapshots[1]?.price ?? latestA.price);
-        valB = latestB.price - (b.snapshots[1]?.price ?? latestB.price);
+        valA =
+          (latestA?.price - (a.snapshots[1]?.price ?? latestA?.price)) /
+          a.snapshots[1]?.price;
+        valB =
+          (latestB?.price - (b.snapshots[1]?.price ?? latestB?.price)) /
+          b.snapshots[1]?.price;
         break;
     }
 
     if (typeof valA === "string" && typeof valB === "string") {
-      return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      return sortOrder === "asc"
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA);
     } else {
       return sortOrder === "asc"
         ? (valA as number) - (valB as number)
@@ -80,15 +86,34 @@ export default function StockTable({ rows }: StockTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left border-b">
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("symbol")}>
+                <th
+                  className="p-2 cursor-pointer"
+                  onClick={() => handleSort("symbol")}
+                >
                   종목
                 </th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("per")}>PER</th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("eps")}>EPS</th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("price")}>
+                <th
+                  className="p-2 cursor-pointer"
+                  onClick={() => handleSort("per")}
+                >
+                  PER
+                </th>
+                <th
+                  className="p-2 cursor-pointer"
+                  onClick={() => handleSort("eps")}
+                >
+                  EPS
+                </th>
+                <th
+                  className="p-2 cursor-pointer"
+                  onClick={() => handleSort("price")}
+                >
                   가격
                 </th>
-                <th className="p-2 cursor-pointer" onClick={() => handleSort("rise")}>
+                <th
+                  className="p-2 cursor-pointer"
+                  onClick={() => handleSort("rise")}
+                >
                   상승률
                 </th>
               </tr>
@@ -97,15 +122,20 @@ export default function StockTable({ rows }: StockTableProps) {
               {paged.map((row) => {
                 const latest = latestSnapshot(row);
                 const prev = row.snapshots[1] ?? latest;
-                const rise = prev ? (latest.price - prev.price) / prev.price : 0;
+                const rise = prev
+                  ? (latest.price - prev.price) / prev.price
+                  : 0;
                 return (
                   <tr key={row.symbol} className="border-b hover:bg-muted/40">
                     <td className="p-2">
-                      {row.name} <span className="text-muted-foreground">({row.symbol})</span>
+                      {row.name}{" "}
+                      <span className="text-muted-foreground">
+                        ({row.symbol})
+                      </span>
                     </td>
-                    <td className="p-2">{latest.per?.toFixed(2) ?? "-"}</td>
-                    <td className="p-2">{latest.eps.toFixed(2)}</td>
-                    <td className="p-2">{latest.price.toFixed(2)}</td>
+                    <td className="p-2">{latest?.per?.toFixed(2) ?? "-"}</td>
+                    <td className="p-2">{latest?.eps.toFixed(2)}</td>
+                    <td className="p-2">{latest?.price.toFixed(2)}</td>
                     <td className="p-2">
                       <Badge
                         variant={rise >= 0 ? "default" : "destructive"}
