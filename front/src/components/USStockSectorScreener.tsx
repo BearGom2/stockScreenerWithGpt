@@ -228,7 +228,7 @@ export default function USStockSectorScreener() {
                   data={sectorAgg}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                   onClick={(e) => {
-                    const label = (e && e.activeLabel) as string | undefined;
+                    const label = e.activeLabel as string | undefined;
                     if (label) {
                       setSelectedSector(label as Sector);
                       setSectorModalOpen(true);
@@ -255,7 +255,7 @@ export default function USStockSectorScreener() {
                   data={topRisingSectors}
                   margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
                   onClick={(e) => {
-                    const label = (e && e.activeLabel) as string | undefined;
+                    const label = e.activeLabel as string | undefined;
                     if (label) {
                       setSelectedSector(label as Sector);
                       setSectorModalOpen(true);
