@@ -1,8 +1,11 @@
 import yahooFinance from "yahoo-finance2";
 import fs from "fs";
 import path from "path";
+const __dirname = path.dirname("./sectors.json");
 
-const sp500Tickers: string[] = JSON.parse(fs.readFileSync("./sp500.json", "utf-8"));
+const sp500Tickers: string[] = JSON.parse(
+  fs.readFileSync("../sp500.json", "utf-8")
+);
 
 async function extractSectors() {
   const sectorSet = new Set<string>();
@@ -13,7 +16,7 @@ async function extractSectors() {
       const quote = await yahooFinance.quoteSummary(symbol, {
         modules: ["assetProfile"],
       });
-      const sector = quote.assetProfile?.sector;
+      const sector = quote.assetProfile?.industry;
       if (sector) {
         sectorSet.add(sector);
       }
