@@ -24,7 +24,6 @@ export async function getSP500Data(_req: Request, res: Response) {
       sp500Tickers.map(async (symbol) => {
         try {
           const d = await getQuoteSummary(symbol);
-
           const price = d.price?.regularMarketPrice ?? null;
           const history = d.earningsHistory?.history ?? [];
           const snapshots = await Promise.all(
@@ -44,7 +43,7 @@ export async function getSP500Data(_req: Request, res: Response) {
           return {
             symbol,
             name: d.price?.shortName ?? symbol,
-            sector: d.summaryProfile?.sector ?? "Unknown",
+            sector: d.summaryProfile?.industry ?? "Unknown",
             price,
             eps: d.defaultKeyStatistics?.trailingEps ?? null,
             per:
